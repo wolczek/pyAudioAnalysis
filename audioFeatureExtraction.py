@@ -1,9 +1,11 @@
+from __future__ import print_function
 import sys
 import time
 import os
 import glob
 import numpy
-import cPickle
+#import cPickle
+import pickle
 import aifc
 import math
 from numpy import NaN, Inf, arange, isscalar, array
@@ -14,14 +16,14 @@ from scipy.signal import fftconvolve
 from matplotlib.mlab import find
 import matplotlib.pyplot as plt
 from scipy import linalg as la
-import audioTrainTest as aT
-import audioBasicIO
-import utilities
+from . import audioTrainTest as aT
+from . import audioBasicIO
+from . import utilities
 from scipy.signal import lfilter, hamming
 #from scikits.talkbox import lpc
 
-reload(sys)  
-sys.setdefaultencoding('utf8')
+# reload(sys)  
+# sys.setdefaultencoding('utf8')
 
 eps = 0.00000001
 
@@ -204,7 +206,7 @@ def mfccInitFilterBanks(fs, nfft):
     heights = 2./(freqs[2:] - freqs[0:-2])
 
     # Compute filterbank coeff (in fft domain, in bins)
-    fbank = numpy.zeros((nFiltTotal, nfft))
+    fbank = numpy.zeros((nFiltTotal, int(nfft)))
     nfreqs = numpy.arange(nfft) / (1. * nfft) * fs
 
     for i in range(nFiltTotal):
@@ -278,7 +280,7 @@ def stChromaFeatures(X, fs, nChroma, nFreqsPerChroma):
     newD = int(numpy.ceil(C.shape[0] / 12.0) * 12)
     C2 = numpy.zeros((newD, ))
     C2[0:C.shape[0]] = C
-    C2 = C2.reshape(C2.shape[0]/12, 12)
+    C2 = C2.reshape(C2.shape[0]//12, 12)
     #for i in range(12):
     #    finalC[i] = numpy.sum(C[i:C.shape[0]:12])
     finalC = numpy.matrix(numpy.sum(C2, axis=0)).T
@@ -495,6 +497,7 @@ def stSpectogram(signal, Fs, Win, Step, PLOT=False):
 
     FreqAxis = [((f + 1) * Fs) / (2 * nfft) for f in range(specgram.shape[1])]
     TimeAxis = [(t * Step) / Fs for t in range(specgram.shape[0])]
+    print(countFrames)
 
     if (PLOT):
         fig, ax = plt.subplots()
@@ -549,7 +552,7 @@ def stFeatureExtraction(signal, Fs, Win, Step):
     N = len(signal)                                # total number of samples
     curPos = 0
     countFrames = 0
-    nFFT = Win / 2
+    nFFT = int(Win / 2)
 
     [fbank, freqs] = mfccInitFilterBanks(Fs, nFFT)                # compute the triangular filter banks used in the mfcc calculation
     nChroma, nFreqsPerChroma = stChromaFeaturesInit(nFFT, Fs)
@@ -732,9 +735,9 @@ def dirWavFeatureExtraction(dirName, mtWin, mtStep, stWin, stStep, computeBEAT=F
     wavFilesList = sorted(wavFilesList)    
     wavFilesList2 = []
     for i, wavFile in enumerate(wavFilesList):        
-        print "Analyzing file {0:d} of {1:d}: {2:s}".format(i+1, len(wavFilesList), wavFile.encode('utf-8'))
+        print ("Analyzing file {0:d} of {1:d}: {2:s}".format(i+1, len(wavFilesList), wavFile.encode('utf-8')))
         if os.stat(wavFile).st_size == 0:
-            print "   (EMPTY FILE -- SKIPPING)"
+            print ("   (EMPTY FILE -- SKIPPING)")
             continue        
         [Fs, x] = audioBasicIO.readAudioFile(wavFile)            # read file    
         if isinstance(x, int):
@@ -743,7 +746,7 @@ def dirWavFeatureExtraction(dirName, mtWin, mtStep, stWin, stStep, computeBEAT=F
         t1 = time.clock()        
         x = audioBasicIO.stereo2mono(x)                          # convert stereo to mono                
         if x.shape[0]<float(Fs)/10:
-            print "  (AUDIO FILE TOO SMALL - SKIPPING)"
+            print ("  (AUDIO FILE TOO SMALL - SKIPPING)")
             continue
         wavFilesList2.append(wavFile)
         if computeBEAT:                                          # mid-term feature extraction for current file
@@ -766,7 +769,7 @@ def dirWavFeatureExtraction(dirName, mtWin, mtStep, stWin, stStep, computeBEAT=F
             duration = float(len(x)) / Fs
             processingTimes.append((t2 - t1) / duration)
     if len(processingTimes) > 0:
-        print "Feature extraction complexity ratio: {0:.1f} x realtime".format((1.0 / numpy.mean(numpy.array(processingTimes))))
+        print ("Feature extraction complexity ratio: {0:.1f} x realtime".format((1.0 / numpy.mean(numpy.array(processingTimes)))))
     return (allMtFeatures, wavFilesList2)
 
 
@@ -867,20 +870,20 @@ def mtFeatureExtractionToFile(fileName, midTermSize, midTermStep, shortTermSize,
 
     numpy.save(outPutFile, mtF)                              # save mt features to numpy file
     if PLOT:
-        print "Mid-term numpy file: " + outPutFile + ".npy saved"
+        print ("Mid-term numpy file: " + outPutFile + ".npy saved")
     if storeToCSV:
         numpy.savetxt(outPutFile+".csv", mtF.T, delimiter=",")
         if PLOT:
-            print "Mid-term CSV file: " + outPutFile + ".csv saved"
+            print ("Mid-term CSV file: " + outPutFile + ".csv saved")
 
     if storeStFeatures:
         numpy.save(outPutFile+"_st", stF)                    # save st features to numpy file
         if PLOT:
-            print "Short-term numpy file: " + outPutFile + "_st.npy saved"
+            print ("Short-term numpy file: " + outPutFile + "_st.npy saved")
         if storeToCSV:
             numpy.savetxt(outPutFile+"_st.csv", stF.T, delimiter=",")    # store st features to CSV file
             if PLOT:
-                print "Short-term CSV file: " + outPutFile + "_st.csv saved"
+                print ("Short-term CSV file: " + outPutFile + "_st.csv saved")
 
 
 def mtFeatureExtractionToFileDir(dirName, midTermSize, midTermStep, shortTermSize, shortTermStep, storeStFeatures=False, storeToCSV=False, PLOT=False):
